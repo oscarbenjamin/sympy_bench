@@ -16,8 +16,8 @@ def main(*args):
                         help='timeout in seconds (default: 1.0) (0 for no timeout)')
     parser.add_argument('--quiet', '-q', action='store_true',
                         help='do not print progress')
-    parser.add_argument('--sizes', type=str, default='1,2,3,4,5,6,7,8,9,10',
-                        help='matrix sizes (default: 1,2,3,4,5,6,7,8,9,10)')
+    parser.add_argument('--n', type=str, default='1,2,3,4,5,6,7,8,9,10',
+                        help='main parameter values')
     parser.add_argument('--repeats', type=int, default=1,
                         help='number of times to repeat each timing (default: 1)')
     parser.add_argument('--matrices', type=str, default='ZZnn_d',
@@ -71,25 +71,15 @@ def main(*args):
     domain = matrices_f.domain
     methods = rref_methods[domain]
 
-    print('Matrices:', matrices)
-    print('Domain:', domain)
-    print('Methods:', ', '.join(methods.keys()))
-    print()
-    print(matrices_f.__doc__)
-    print()
-    for m, mf in methods.items():
-        print(f'{m}: {mf.__doc__}')
-    print()
-
     if args.timeout == 0:
         args.timeout = None
 
-    args.sizes = [int(s) for s in args.sizes.split(',')]
+    args.n = [int(s) for s in args.n.split(',')]
 
     opts = Options(
         timeout=args.timeout,
         quiet=args.quiet,
-        sizes=args.sizes,
+        n=args.n,
         size=args.size,
         density=args.density,
         bits=args.bits,
@@ -97,7 +87,18 @@ def main(*args):
         repeats=args.repeats,
     )
 
-    print(f'Timing with n={opts.sizes}, density={opts.density}, bits={opts.bits}, timeout={opts.timeout}')
+    print('Matrices:', matrices)
+    print('Domain:', domain)
+    print('Methods:', ', '.join(methods.keys()))
+    print(f'Parameters:, {params_to_str(matrices_f, opts)}')
+    print(f'Timing with n={opts.n}')
+    print()
+    print(matrices_f.__doc__)
+    print()
+    for m, mf in methods.items():
+        print(f'{m}: {mf.__doc__}')
+    print()
+    print('Timing...')
     print()
     times, table, rownames, colnames = make_table(methods, matrices_f, opts)
     print()
@@ -116,7 +117,7 @@ class Options:
     timeout: float = 1.0
     repeats: int = 1
     quiet: bool = False
-    sizes: str = '1,2,3,4,5,6,7,8,9,10'
+    n: str = '1,2,3,4,5,6,7,8,9,10'
     size: int = 10
     density: float = 1.0
     bits: int = 6
@@ -204,7 +205,7 @@ def make_table(methods, matrices, opts=Options()):
     names = []
     times = []
 
-    for n in opts.sizes:
+    for n in opts.n:
         name, M = matrices(n, opts=opts)
         M = [M] + [matrices(n, opts=opts)[1] for i in range(opts.repeats-1)]
         names.append(name)
@@ -255,6 +256,16 @@ def make_table(methods, matrices, opts=Options()):
     return times, table, rownames, colnames
 
 
+def params_to_str(matrices, opts):
+    """Convert matrices and options to a string."""
+    if isinstance(matrices, str):
+        matrix_type = matrix_types[matrices]
+    else:
+        matrix_type = matrices
+    params = ', '.join(f'{p}={getattr(opts,p)}' for p in matrix_type.parameters)
+    return params
+
+
 def plot_timings(matrices, times, rownames, colnames, opts=Options()):
     """Plot timings."""
     import matplotlib.pyplot as plt
@@ -264,7 +275,7 @@ def plot_timings(matrices, times, rownames, colnames, opts=Options()):
         times = [[t if t is not None else opts.timeout for t in ts] for ts in times]
 
     matrix_type = matrix_types[matrices]
-    params = ', '.join(f'{p}={getattr(opts,p)}' for p in matrix_type.parameters)
+    params = params_to_str(matrix_type, opts)
     p = matrix_type.n
     title = f'RREF times vs {p} for {params}'
 
@@ -278,20 +289,20 @@ def plot_timings(matrices, times, rownames, colnames, opts=Options()):
     ax.set_xscale('log')
     ax.grid(True)
 
-    sizes = opts.sizes[:times.shape[0]]
+    n = opts.n[:times.shape[0]]
 
     for i, colname in enumerate(colnames):
-        ax.plot(sizes, times[:,i], marker='x', label=colname)
+        ax.plot(n, times[:,i], marker='x', label=colname)
 
-    ax.hlines(opts.timeout, 0, sizes[-1], linestyles='dashed', label='timeout')
+    ax.hlines(opts.timeout, 0, n[-1], linestyles='dashed', label='timeout')
 
     ax.legend()
 
-    ax.set_xticks(sizes)
+    ax.set_xticks(n)
     ax.set_xticklabels(rownames, rotation=45)
 
-    plt.show()
     plt.savefig('rref_timings.svg')
+    plt.show()
 
 
 # --------------------------------------------------------------------------- #
