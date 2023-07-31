@@ -1073,7 +1073,7 @@ else:
 
     def rref_DMs_ZZ_hybrid(M):
         """DM sparse .rref_den(), best method."""
-        M_rref_z, den, _ = M.to_DM(ZZ).rref_den()
+        M_rref_z, den, _ = M.to_DM(ZZ).rref_den(keep_domain=False)
         return M_rref_z.to_Matrix()/den
 
 
